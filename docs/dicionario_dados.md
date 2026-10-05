@@ -1,6 +1,6 @@
 # Dicionario de Dados: Ciberseguranca - Eventos
 
-Trio: Mateus Huster, Deric Gabriel ,Leonardo Wingert |  Banco: data/dataops.db (SQLite)
+Trio: Mateus Huster, Deric Gabriel , Leonardo Wingert |  Banco: data/dataops.db (SQLite)
 
 ## Tabela: usuarios
 
