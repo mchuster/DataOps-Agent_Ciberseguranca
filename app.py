@@ -7,6 +7,7 @@ import streamlit as st
 
 from src.agent.dataops_agent import DataOpsAgent
 from src.database.init_db import CAMINHO_DB
+from src.ui_feedback import exibir_botoes_feedback
 
 st.set_page_config(
     page_title="DataOps Agent",
@@ -134,13 +135,16 @@ def perguntar_ao_agente(pergunta: str) -> dict:
     return asyncio.run(_consultar(pergunta, st.session_state.historico_llm))
 
 
-def renderizar_mensagem(mensagem: dict) -> None:
+def renderizar_mensagem(mensagem: dict, indice: int = 0) -> None:
     avatar = ":material/person:" if mensagem["role"] == "user" else ":material/shield:"
     with st.chat_message(mensagem["role"], avatar=avatar):
         st.markdown(mensagem["content"])
         if mensagem.get("trace"):
             renderizar_dados(mensagem["trace"])
             renderizar_trace(mensagem["trace"])
+        if mensagem["role"] == "assistant":
+            pergunta_origem = mensagem.get("pergunta_origem", "")
+            exibir_botoes_feedback(indice, pergunta_origem, mensagem["content"])
 
 
 def main() -> None:
@@ -150,8 +154,8 @@ def main() -> None:
     renderizar_sidebar()
 
     # Histórico de mensagens
-    for mensagem in st.session_state.messages:
-        renderizar_mensagem(mensagem)
+    for idx, mensagem in enumerate(st.session_state.messages):
+        renderizar_mensagem(mensagem, indice=idx)
 
     # Sugestões iniciais (pills) caso o chat esteja vazio
     if not st.session_state.messages:
@@ -174,22 +178,35 @@ def main() -> None:
     if prompt_a_processar:
         msg_usuario = {"role": "user", "content": prompt_a_processar}
         st.session_state.messages.append(msg_usuario)
-        renderizar_mensagem(msg_usuario)
+        renderizar_mensagem(msg_usuario, indice=len(st.session_state.messages) - 1)
 
         with st.chat_message("assistant", avatar=":material/shield:"):
             with st.status(":shimmer[Auditando dados e executando ferramentas...]", type="compact") as status:
                 try:
                     saida = perguntar_ao_agente(prompt_a_processar)
-                    resposta = {"role": "assistant", "content": saida["resposta"], "trace": saida["trace"]}
+                    resposta = {
+                        "role": "assistant",
+                        "content": saida["resposta"],
+                        "trace": saida["trace"],
+                        "pergunta_origem": prompt_a_processar,
+                    }
                     status.update(label=f"Concluído em {len(saida['trace'])} etapa(s)", state="complete")
                 except Exception as erro:
-                    resposta = {"role": "assistant", "content": f"Não consegui concluir: {erro}", "trace": []}
+                    resposta = {
+                        "role": "assistant",
+                        "content": f"Não consegui concluir: {erro}",
+                        "trace": [],
+                        "pergunta_origem": prompt_a_processar,
+                    }
                     status.update(label="Falha na execução", state="error")
 
             st.markdown(resposta["content"])
             if resposta.get("trace"):
                 renderizar_dados(resposta["trace"])
                 renderizar_trace(resposta["trace"])
+
+            idx_resp = len(st.session_state.messages)
+            exibir_botoes_feedback(idx_resp, prompt_a_processar, resposta["content"])
 
         st.session_state.messages.append(resposta)
 
