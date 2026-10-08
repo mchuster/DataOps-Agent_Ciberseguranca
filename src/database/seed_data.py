@@ -10,9 +10,6 @@ SEMENTE = 42
 QUANTIDADE_USUARIOS = 80
 QUANTIDADE_DISPOSITIVOS = 60
 QUANTIDADE_EVENTOS = 150
-QUANTIDADE_CLIENTES = 80
-QUANTIDADE_PRODUTOS = 60
-QUANTIDADE_PEDIDOS = 150
 
 ANOMALIAS_ESPERADAS = {
     "emails_nulos": 6,
@@ -22,10 +19,6 @@ ANOMALIAS_ESPERADAS = {
     "severidades_invalidas": 5,
     "datas_eventos_futuras": 3,
     "ips_origem_vazios": 5,
-    "clientes_sem_email": 6,
-    "produtos_preco_zero": 3,
-    "pedidos_valor_negativo": 4,
-    "pedidos_data_futura": 3,
 }
 
 DEPARTAMENTOS = ("TI", "Financeiro", "Recursos Humanos", "Operacoes", "Juridico")
@@ -99,61 +92,9 @@ def gerar_dados() -> tuple[list[tuple], list[tuple], list[tuple]]:
     return usuarios, dispositivos, eventos
 
 
-def gerar_dados_comerciais() -> tuple[list[tuple], list[tuple], list[tuple]]:
-    aleatorio = random.Random(SEMENTE)
-    hoje = date.today()
-    clientes = []
-    for cliente_id in range(1, QUANTIDADE_CLIENTES + 1):
-        email = None if cliente_id <= 6 else f"cliente{cliente_id}@empresa.local"
-        if cliente_id in (7, 8, 9):
-            email = "duplicado@empresa.local"
-        clientes.append(
-            (
-                cliente_id,
-                f"Cliente {cliente_id:03d}",
-                email,
-                aleatorio.choice(("Sao Paulo", "Curitiba", "Recife", "Manaus")),
-                (hoje - timedelta(days=aleatorio.randint(1, 900))).isoformat(),
-            )
-        )
-
-    produtos = [
-        (
-            produto_id,
-            f"Produto {produto_id:03d}",
-            aleatorio.choice(("Hardware", "Software", "Servico")),
-            0 if produto_id <= 3 else round(10 + aleatorio.random() * 990, 2),
-        )
-        for produto_id in range(1, QUANTIDADE_PRODUTOS + 1)
-    ]
-
-    pedidos = []
-    for pedido_id in range(1, QUANTIDADE_PEDIDOS + 1):
-        data_pedido = hoje - timedelta(days=aleatorio.randint(0, 365))
-        if pedido_id > QUANTIDADE_PEDIDOS - 3:
-            data_pedido = hoje + timedelta(days=aleatorio.randint(1, 30))
-        quantidade = aleatorio.randint(1, 5)
-        produto_id = aleatorio.randint(1, QUANTIDADE_PRODUTOS)
-        valor_total = round(quantidade * produtos[produto_id - 1][3], 2)
-        if pedido_id <= 4:
-            valor_total = -abs(valor_total or 10.0)
-        pedidos.append(
-            (
-                pedido_id,
-                aleatorio.randint(1, QUANTIDADE_CLIENTES),
-                produto_id,
-                quantidade,
-                valor_total,
-                data_pedido.isoformat(),
-            )
-        )
-    return clientes, produtos, pedidos
-
-
 def inserir_dados() -> None:
     resetar_banco()
     usuarios, dispositivos, eventos = gerar_dados()
-    clientes, produtos, pedidos = gerar_dados_comerciais()
     with conectar() as conexao:
         criar_tabelas(conexao)
         conexao.executemany(
@@ -174,34 +115,14 @@ def inserir_dados() -> None:
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             eventos,
         )
-        conexao.executemany(
-            "INSERT INTO clientes (id, nome, email, cidade, criado_em) "
-            "VALUES (?, ?, ?, ?, ?)",
-            clientes,
-        )
-        conexao.executemany(
-            "INSERT INTO produtos (id, nome, categoria, preco) VALUES (?, ?, ?, ?)",
-            produtos,
-        )
-        conexao.executemany(
-            "INSERT INTO pedidos "
-            "(id, cliente_id, produto_id, quantidade, valor_total, data_pedido) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            pedidos,
-        )
         conexao.commit()
         consultas_contagem = {
             "usuarios": "SELECT COUNT(*) FROM usuarios",
             "dispositivos": "SELECT COUNT(*) FROM dispositivos",
             "eventos": "SELECT COUNT(*) FROM eventos",
-            "clientes": "SELECT COUNT(*) FROM clientes",
-            "produtos": "SELECT COUNT(*) FROM produtos",
-            "pedidos": "SELECT COUNT(*) FROM pedidos",
         }
         for tabela, consulta in consultas_contagem.items():
-            total = conexao.execute(
-                consulta
-            ).fetchone()[0]
+            total = conexao.execute(consulta).fetchone()[0]
             print(f"{tabela}: {total}")
     print(f"Banco populado em: {CAMINHO_DB}")
 

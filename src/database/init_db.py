@@ -60,40 +60,6 @@ CREATE INDEX IF NOT EXISTS idx_eventos_tipo_severidade
 CREATE INDEX IF NOT EXISTS idx_eventos_data
     ON eventos(data_evento);
 
-CREATE TABLE IF NOT EXISTS clientes (
-    id        INTEGER PRIMARY KEY,
-    nome      TEXT NOT NULL,
-    email     TEXT,
-    cidade    TEXT NOT NULL,
-    criado_em DATETIME NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS produtos (
-    id        INTEGER PRIMARY KEY,
-    nome      TEXT NOT NULL,
-    categoria TEXT NOT NULL,
-    preco     REAL NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS pedidos (
-    id          INTEGER PRIMARY KEY,
-    cliente_id  INTEGER NOT NULL,
-    produto_id  INTEGER NOT NULL,
-    quantidade  INTEGER NOT NULL,
-    valor_total REAL NOT NULL,
-    data_pedido DATETIME NOT NULL,
-    FOREIGN KEY (cliente_id) REFERENCES clientes(id),
-    FOREIGN KEY (produto_id) REFERENCES produtos(id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_pedidos_cliente
-    ON pedidos(cliente_id);
-
-CREATE INDEX IF NOT EXISTS idx_pedidos_produto
-    ON pedidos(produto_id);
-
-CREATE INDEX IF NOT EXISTS idx_pedidos_data
-    ON pedidos(data_pedido);
 """
 
 

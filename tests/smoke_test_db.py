@@ -29,23 +29,36 @@ def main() -> int:
     with conectar() as conexao:
         checar("integridade do arquivo", escalar(conexao, "PRAGMA integrity_check") == "ok")
 
-        for tabela in ("clientes", "produtos", "pedidos"):
+        for tabela in ("usuarios", "dispositivos", "eventos"):
             total = escalar(conexao, f"SELECT COUNT(*) FROM {tabela}")
             checar(f"{tabela} tem 50+ linhas", total >= 50, f"({total})")
 
-        checar("JOIN pedidos-clientes funciona", escalar(conexao, "SELECT COUNT(*) FROM pedidos p JOIN clientes c ON p.cliente_id = c.id") > 0)
+        checar(
+            "JOIN eventos-usuarios funciona",
+            escalar(conexao, "SELECT COUNT(*) FROM eventos e JOIN usuarios u ON e.usuario_id = u.id") > 0,
+        )
+        checar(
+            "JOIN eventos-dispositivos funciona",
+            escalar(conexao, "SELECT COUNT(*) FROM eventos e JOIN dispositivos d ON e.dispositivo_id = d.id") > 0,
+        )
 
-        checar("clientes_sem_email", escalar(conexao, "SELECT COUNT(*) FROM clientes WHERE email IS NULL") > 0)
-        checar("produtos_preco_zero", escalar(conexao, "SELECT COUNT(*) FROM produtos WHERE preco = 0") > 0)
-        checar("pedidos_valor_negativo", escalar(conexao, "SELECT COUNT(*) FROM pedidos WHERE valor_total < 0") > 0)
-        checar("pedidos_data_futura", escalar(conexao, "SELECT COUNT(*) FROM pedidos WHERE data_pedido > date('now')") > 0)
-        checar("emails_duplicados", escalar(conexao, "SELECT COUNT(*) FROM clientes WHERE email IS NOT NULL GROUP BY email HAVING COUNT(*) > 1") > 0)
+        checar("emails_nulos", escalar(conexao, "SELECT COUNT(*) FROM usuarios WHERE email IS NULL") == ANOMALIAS_ESPERADAS["emails_nulos"])
+        checar("emails_duplicados", escalar(conexao, "SELECT COUNT(*) FROM usuarios WHERE email IS NOT NULL GROUP BY email HAVING COUNT(*) > 1") > 0)
+        checar("departamentos_vazios", escalar(conexao, "SELECT COUNT(*) FROM usuarios WHERE departamento = ''") == ANOMALIAS_ESPERADAS["departamentos_vazios"])
+        checar("ips_dispositivos_duplicados", escalar(conexao, "SELECT COUNT(*) FROM dispositivos GROUP BY ip HAVING COUNT(*) > 1") > 0)
+        checar("severidades_invalidas", escalar(conexao, "SELECT COUNT(*) FROM eventos WHERE severidade = 'invalida'") == ANOMALIAS_ESPERADAS["severidades_invalidas"])
+        checar("datas_eventos_futuras", escalar(conexao, "SELECT COUNT(*) FROM eventos WHERE data_evento > date('now')") == ANOMALIAS_ESPERADAS["datas_eventos_futuras"])
+        checar("ips_origem_vazios", escalar(conexao, "SELECT COUNT(*) FROM eventos WHERE ip_origem = ''") == ANOMALIAS_ESPERADAS["ips_origem_vazios"])
 
         try:
-            conexao.execute("INSERT INTO pedidos (cliente_id, data_pedido, valor_total) VALUES (?, ?, ?)", (9999, "2024-01-01", 100))
-            checar("insercao com cliente_id inexistente foi recusada", False)
+            conexao.execute(
+                "INSERT INTO dispositivos (usuario_id, hostname, sistema_operacional, ip, criado_em) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (99999, "host-fake", "Linux", "10.0.0.99", "2026-01-01"),
+            )
+            checar("insercao com usuario_id inexistente foi recusada", False)
         except sqlite3.IntegrityError:
-            checar("insercao com cliente_id inexistente foi recusada", True)
+            checar("insercao com usuario_id inexistente foi recusada", True)
 
     total_ok = sum(resultados)
     print(f"\n{total_ok}/{len(resultados)} verificacoes aprovadas")
